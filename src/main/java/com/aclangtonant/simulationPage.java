@@ -36,9 +36,11 @@ public class simulationPage {
     @FXML
     private void runAnt() {
         // Ant ant = new Ant(2, 2, "UP");
+        
+        for (int i = 0; i < 4; i++) {
+            runner newRunner = new runner(20, grid);
 
-        runner newRunner = new runner(20, grid);
-
-        new Thread(newRunner).start();
+            new Thread(newRunner).start();
+        }
     }
 }
