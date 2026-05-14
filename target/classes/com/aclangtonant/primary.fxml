@@ -10,9 +10,13 @@
    <children>
       <Label text="Primary View" />
       <Label alignment="CENTER" text="Width" />
-      <TextField fx:id="widthInput" promptText="Width" text="100" />
+      <TextField fx:id="widthInput" promptText="Width" text="15000" />
       <Label alignment="CENTER" prefHeight="24.0" prefWidth="47.0" text="Height" textAlignment="CENTER" />
-      <TextField fx:id="heightInput" promptText="Height" text="100" />
+      <TextField fx:id="heightInput" promptText="Height" text="10000" />
+      <Label alignment="CENTER" prefHeight="24.0" prefWidth="47.0" text="Ants" textAlignment="CENTER" />
+      <TextField fx:id="antsInput" promptText="Ants" text="1000000" />
+      <Label alignment="CENTER" prefHeight="24.0" prefWidth="47.0" text="Threads" textAlignment="CENTER" />
+      <TextField fx:id="threadsInput" promptText="Threads" text="30" />
       <Button fx:id="primaryButton" onAction="#startSimulation" text="Start Simulation" />
    </children>
    <padding>

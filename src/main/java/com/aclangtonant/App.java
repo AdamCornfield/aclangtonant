@@ -1,12 +1,12 @@
 package com.aclangtonant;
 
+import java.io.IOException;
+
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-
-import java.io.IOException;
 
 /**
  * JavaFX App
@@ -22,6 +22,10 @@ public class App extends Application {
         stage.setMinWidth(320);
         stage.setMinHeight(300);
         stage.show();
+
+        stage.setOnCloseRequest(event -> {
+            simulationPage.shutdown();
+        });
     }
 
     static void setRoot(String fxml) throws IOException {

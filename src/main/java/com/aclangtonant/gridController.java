@@ -8,10 +8,22 @@ public class gridController {
     public static int GRID_WIDTH = 32;
     public static int GRID_HEIGHT = 32;
     public static boolean[][] gridStore = new boolean[GRID_WIDTH][GRID_HEIGHT];
+    
+    public static boolean lockingEnabled = false;
+public static int lockRegionSize = 1;
 
+    private static final double MIN_ZOOM = 0.25;
+    private static final double MAX_ZOOM = 80.0;
+
+    private static double canvasWidth = 0;
+    private static double canvasHeight = 0;
+    private static double baseCellSize = 0;
     private static double cellSize = 0;
     private static double gridOffsetX = 0;
     private static double gridOffsetY = 0;
+    private static double panX = 0;
+    private static double panY = 0;
+    private static double zoom = 1;
 
     private GraphicsContext grid;
 
@@ -20,9 +32,10 @@ public class gridController {
     }
 
     public void drawGrid(double canvasWidth, double canvasHeight) {
-        cellSize = Math.min(canvasWidth / GRID_WIDTH, canvasHeight / GRID_HEIGHT);
-        gridOffsetX = (canvasWidth - (GRID_WIDTH * cellSize)) / 2;
-        gridOffsetY = (canvasHeight - (GRID_HEIGHT * cellSize)) / 2;
+        gridController.canvasWidth = canvasWidth;
+        gridController.canvasHeight = canvasHeight;
+        baseCellSize = Math.min(canvasWidth / GRID_WIDTH, canvasHeight / GRID_HEIGHT);
+        updateViewport();
 
         grid.clearRect(0, 0, canvasWidth, canvasHeight);
 
@@ -37,14 +50,39 @@ public class gridController {
         drawGridBorder();
     }
 
-    public void toggleCell(int gridX, int gridY) {
-        if (gridStore[gridX][gridY]) {
-            gridStore[gridX][gridY] = false;
-            drawGrid(grid.getCanvas().getWidth(), grid.getCanvas().getHeight());
+    public void pan(double xOffset, double yOffset) {
+        panX += xOffset;
+        panY += yOffset;
+
+        drawGrid(canvasWidth, canvasHeight);
+    }
+
+    public void zoom(double xPos, double yPos, double zoomFactor) {
+        double gridX = (xPos - gridOffsetX) / cellSize;
+        double gridY = (yPos - gridOffsetY) / cellSize;
+
+        zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * zoomFactor));
+        cellSize = baseCellSize * zoom;
+
+        double centeredOffsetX = (canvasWidth - (GRID_WIDTH * cellSize)) / 2;
+        double centeredOffsetY = (canvasHeight - (GRID_HEIGHT * cellSize)) / 2;
+        panX = xPos - centeredOffsetX - (gridX * cellSize);
+        panY = yPos - centeredOffsetY - (gridY * cellSize);
+
+        drawGrid(canvasWidth, canvasHeight);
+    }
+
+    public void toggleCell(int xPos, int yPos) {
+        gridStore[xPos][yPos] = !gridStore[xPos][yPos];
+
+        renderPipeline.addChange(xPos, yPos);
+    }
+
+    public void drawCellFromStore(int xPos, int yPos) {
+        if (gridStore[xPos][yPos]) {
+            setCellColour(xPos, yPos, Color.BLACK);
         } else {
-            gridStore[gridX][gridY] = true;
-            setCellColour(gridX, gridY, Color.BLACK);
-            drawGridBorder();
+            clearCell(xPos, yPos);
         }
     }
 
@@ -56,10 +94,23 @@ public class gridController {
         grid.fillRect(x, y, cellSize, cellSize);
     }
 
-    private void drawGridBorder() {
+    private void clearCell(int gridX, int gridY) {
+        double x = gridOffsetX + gridX * cellSize;
+        double y = gridOffsetY + gridY * cellSize;
+
+        grid.clearRect(x, y, cellSize, cellSize);
+    }
+
+    public void drawGridBorder() {
         grid.setStroke(Color.DARKGRAY);
         grid.setLineWidth(2);
         grid.strokeRect(gridOffsetX, gridOffsetY, GRID_WIDTH * cellSize, GRID_HEIGHT * cellSize);
+    }
+
+    private static void updateViewport() {
+        cellSize = baseCellSize * zoom;
+        gridOffsetX = ((canvasWidth - (GRID_WIDTH * cellSize)) / 2) + panX;
+        gridOffsetY = ((canvasHeight - (GRID_HEIGHT * cellSize)) / 2) + panY;
     }
 
     public static void setGridSize(int width, int height) {

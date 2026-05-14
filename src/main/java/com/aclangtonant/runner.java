@@ -1,22 +1,16 @@
 package com.aclangtonant;
 
-import javafx.animation.Animation;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
-import javafx.util.Duration;
-
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 public class runner implements Runnable {
     private ArrayList<Ant> ants = new ArrayList<Ant>();
+    private volatile boolean running = true;
 
 
-    private int antsQty;
+    private final int antsQty;
     private final String[] directions = {"UP", "RIGHT", "DOWN", "LEFT"};
 
-    private gridController grid;
-    private Timeline timeline;
+    private final gridController grid;
 
     public runner(int antsQty, gridController grid) {
         this.antsQty = antsQty;
@@ -29,6 +23,7 @@ public class runner implements Runnable {
 
     @Override
     public void run() {
+        // Create new ants
         for (int i = 0; i < antsQty; i++)   {
             int randomX = (int)(Math.random() * gridController.GRID_WIDTH);
             int randomY = (int)(Math.random() * gridController.GRID_HEIGHT);
@@ -38,25 +33,38 @@ public class runner implements Runnable {
             addAnt(newAnt);
         }
 
-        KeyFrame toggleEverySecond = new KeyFrame(Duration.millis(10), e -> {
-            for (Ant ant : ants) {
-                int xPos = ant.getXPos();
-                int yPos = ant.getYPos();
+        while (running) { 
+            try {
+                renderPipeline.waitIfRenderQueueIsFull();
 
-                if (gridController.gridStore[xPos][yPos]) {
-                    grid.toggleCell(xPos, yPos);
-                    ant.rotateAnt("CCW");
-                } else {
-                    grid.toggleCell(xPos, yPos);
-                    ant.rotateAnt("CW");
+                for (Ant ant : ants) {
+                    int xPos = ant.getXPos();
+                    int yPos = ant.getYPos();
+
+                    if (gridController.gridStore[xPos][yPos]) {
+                        grid.toggleCell(xPos, yPos);
+                        ant.rotateAnt("CCW");
+                    } else {
+                        grid.toggleCell(xPos, yPos);
+                        ant.rotateAnt("CW");
+                    }
+
+                    ant.moveAnt(1);
                 }
 
-                ant.moveAnt(1);
+                try {
+                    Thread.sleep(simulationPage.simSpeed);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            } catch (InterruptedException ex) {
+                System.getLogger(runner.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
             }
-        });
+        }
+    }
 
-        timeline = new Timeline(toggleEverySecond);
-        timeline.setCycleCount(Animation.INDEFINITE);
-        timeline.play();
+    public void stop() {
+        running = false;
     }
 }
