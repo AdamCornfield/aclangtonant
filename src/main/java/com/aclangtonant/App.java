@@ -15,6 +15,10 @@ public class App extends Application {
 
     private static Scene scene;
 
+    /**
+     * Initialises the program and sets the height and width for the window.
+     * It also creates a listener for if the program is shut down so it can close the simulation gracefully.
+     */
     @Override
     public void start(Stage stage) throws IOException {
         scene = new Scene(loadFXML("primary"), 640, 640);

@@ -12,6 +12,10 @@ public class Ant {
         this.direction = startDirection;
     }
 
+    /**
+     * Roates the ant either clockwise (CW) or counter clockwise (CCW)
+     * @param spinDirection
+     */
     public void rotateAnt(String spinDirection) {
         if ("CW".equals(spinDirection)) {
             switch (this.direction) {
@@ -53,6 +57,11 @@ public class Ant {
         }
     }
 
+    /**
+     * Moves the ant a set distance, based on the direction it is currently facing will depend on which coordinate is incremented or decremented.
+     * There is logic to make the ant do a full 180 degree turn if it hits the outside wall.
+     * @param distance
+     */
     public void moveAnt(int distance) {
         switch (this.direction) {
             case "UP":

@@ -20,6 +20,13 @@ public class renderPipeline implements Runnable {
         this.grid = grid;
     }
 
+    /**
+     * Uses the encode utilities and enters the fact that the pixel has had an update and should be re-rendered.
+     * Adds it to a thread safe set backed by a concurrentHashMap.
+     * It then increments its counter used by the backpressure metric.
+     * @param xPos
+     * @param yPos
+     */
     public static void addChange(int xPos, int yPos) {
         long key = encodePos.encode(xPos, yPos);
 
@@ -27,12 +34,20 @@ public class renderPipeline implements Runnable {
         queuedChanges.incrementAndGet();
     }
 
+    /**
+     * Publically exposed function to clear all of the changes that have been made and reset the counter
+     */
     public static void clearChanges() {
         changes.clear();
         queuedChanges.set(0);
     }
     
 
+    /**
+     * Function to be called by the runners making them wait while the queue is full.
+     * It increments the central backpressure sleeps cycle counter, this is rendered on the page as a metric of how much time is spent by threads waiting for the render changes to empty to assist in optimisation.
+     * @throws InterruptedException
+     */
     public static void waitIfRenderQueueIsFull() throws InterruptedException {
         while (queuedChanges.get() > MAX_RENDER_QUEUE_SIZE) {
             renderBackpressureSleeps.incrementAndGet();
@@ -40,6 +55,12 @@ public class renderPipeline implements Runnable {
         }
     }
 
+    /**
+     * Performs one full rendering sweep.
+     * It works by going through each of the encoded changes, decoding its coordinates, and then triggers the grid to redraw that cell from the store of pixels.
+     * 
+     * Each one of these full passes has it's time taken recorded to track performance.
+     */
     @Override
     public void run() {
         long start = System.nanoTime();

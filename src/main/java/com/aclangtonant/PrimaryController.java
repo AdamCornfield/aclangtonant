@@ -37,6 +37,7 @@ public class PrimaryController {
         gridController.setLocking(lockingEnabledInput.isSelected(), lockRegionSize);
         simulationPage.setAntsThreadsSteps(antsQtySplit, threadsQty, stepsQty);
         simulationPage.setSimulationSpeeds(simSpeed, renderSpeed);
+        simulationPage.setSettingsValues(width, height, antsQty, lockingEnabledInput.isSelected(), lockRegionSize);
 
         App.setRoot("simulationPage");
 
