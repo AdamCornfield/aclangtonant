@@ -1,12 +1,12 @@
 package com.aclangtonant;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class renderPipeline implements Runnable {
-    public static ConcurrentLinkedQueue<cellValue> changes = new ConcurrentLinkedQueue<>();
-    
+    public static Set<Long> changes = ConcurrentHashMap.newKeySet();
     public static double renderTime = 0; 
 
     public static final int MAX_RENDER_QUEUE_SIZE = 10_000_000;
@@ -20,8 +20,10 @@ public class renderPipeline implements Runnable {
         this.grid = grid;
     }
 
-    public static void addChange(int x, int y) {
-        changes.add(new cellValue(x, y));
+    public static void addChange(int xPos, int yPos) {
+        long key = encodePos.encode(xPos, yPos);
+
+        changes.add(key);
         queuedChanges.incrementAndGet();
     }
 
@@ -42,13 +44,16 @@ public class renderPipeline implements Runnable {
     public void run() {
         long start = System.nanoTime();
 
-        cellValue change;
-        while ((change = renderPipeline.changes.poll()) != null) { 
-            grid.drawCellFromStore(change.x, change.y);
-            queuedChanges.decrementAndGet();
-        }
+        for (long key : changes) {
+            changes.remove(key);
 
-        grid.drawGridBorder();
+            queuedChanges.decrementAndGet();
+
+            int xPos = encodePos.getXPos(key);
+            int yPos = encodePos.getYPos(key);
+
+            grid.drawCellFromStore(xPos, yPos);
+        }
 
         long end = System.nanoTime();
         renderTime = (end - start) / 1_000_000.0;

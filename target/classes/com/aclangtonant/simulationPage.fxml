@@ -20,7 +20,7 @@
         <RowConstraints minHeight="0.0" percentHeight="100.0" vgrow="ALWAYS" />
     </rowConstraints>
     <children>
-        <StackPane fx:id="canvasContainer" minHeight="0.0" minWidth="0.0" GridPane.columnIndex="0" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" GridPane.vgrow="ALWAYS">
+        <StackPane fx:id="canvasContainer" minHeight="0.0" minWidth="0.0" style="-fx-border-color: darkgray; -fx-border-width: 2.0;" GridPane.columnIndex="0" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" GridPane.vgrow="ALWAYS">
             <children>
                 <Canvas fx:id="canvas" managed="false" />
             </children>

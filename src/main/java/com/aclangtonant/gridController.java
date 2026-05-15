@@ -50,13 +50,11 @@ public class gridController {
         grid.clearRect(0, 0, canvasWidth, canvasHeight);
 
         for (long key : gridStore) {
-            int xPos = (int) (key >> 32);
-            int yPos = (int) key;
+            int xPos = encodePos.getXPos(key);
+            int yPos = encodePos.getYPos(key);
 
             setCellColour(xPos, yPos, Color.BLACK);
         }
-
-        drawGridBorder();
     }
 
     public void pan(double xOffset, double yOffset) {
@@ -100,7 +98,7 @@ public class gridController {
     }
 
     private boolean toggleCellWithoutLock(int xPos, int yPos) {
-        long key = encodePos(xPos, yPos);
+        long key = encodePos.encode(xPos, yPos);
         boolean previousValue = gridStore.contains(key);
 
         if (previousValue) {
@@ -134,12 +132,6 @@ public class gridController {
         double y = gridOffsetY + gridY * cellSize;
 
         grid.clearRect(x, y, cellSize, cellSize);
-    }
-
-    public void drawGridBorder() {
-        grid.setStroke(Color.DARKGRAY);
-        grid.setLineWidth(2);
-        grid.strokeRect(gridOffsetX, gridOffsetY, GRID_WIDTH * cellSize, GRID_HEIGHT * cellSize);
     }
 
     private static void updateViewport() {
@@ -188,12 +180,8 @@ public class gridController {
         }
     }
 
-    private static long encodePos(int xPos, int yPos) {
-        return (((long) xPos) << 32) | (yPos & 0xffffffffL);
-    }
-
     private static boolean getCellValue(int xPos, int yPos) {
-        return gridStore.contains(encodePos(xPos, yPos));
+        return gridStore.contains(encodePos.encode(xPos, yPos));
     } 
 
     public static void clearStore() {
