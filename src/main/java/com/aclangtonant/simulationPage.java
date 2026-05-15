@@ -1,6 +1,8 @@
 package com.aclangtonant;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
@@ -15,8 +17,8 @@ import javafx.scene.layout.StackPane;
 import javafx.util.Duration;
 
 public class simulationPage {
-    public static int simSpeed = 200; // Gap between runs in ms
-    public static int renderSpeed = 100; // Gap between render runs in ms
+    public static int simSpeed = 400; // Gap between runs in ms
+    public static int renderSpeed = 1; // Gap between render runs in ms
     private static final int METRICS_UPDATE_SPEED = 100;
 
     private static ArrayList<runner> runners = new ArrayList<>();
@@ -27,7 +29,11 @@ public class simulationPage {
 
     private static int antsQty = 10;
     private static int threadsQty = 1;
+    private static int stepsQty = 0;
+    private static AtomicInteger completedRunnerCount = new AtomicInteger(0);
 
+    private static long start = 0;
+    private static long end = 0;
     
 
     @FXML private StackPane canvasContainer;
@@ -41,6 +47,10 @@ public class simulationPage {
     @FXML private Label renderSpeedValue;
     @FXML private Label renderTimeValue;
     @FXML private Label backPressureSleeps;
+    @FXML private Label lockWaitTimeValue;
+    @FXML private Label stepsCompletedValue;
+    @FXML private Label currentTimerValue;
+    
 
     private gridController grid;
     private renderPipeline renderer;
@@ -52,6 +62,8 @@ public class simulationPage {
         GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
         grid = new gridController(graphicsContext);
         renderer = new renderPipeline(grid);
+        simSpeedInput.setValue(simSpeed);
+        renderSpeedInput.setValue(renderSpeed);
 
         // Constrains the canvas to the available space in the page.
         canvas.widthProperty().bind(canvasContainer.widthProperty());
@@ -97,19 +109,39 @@ public class simulationPage {
         if (!running) {
             running = true;
 
+            if (runnerThreads.isEmpty()) {
+                resetSimulationView();
+                completedRunnerCount.set(0);
+
+                start = System.nanoTime();
+
+                for (int i = 0; i < threadsQty; i++) {
+                    runner newRunner = new runner(grid);
+                    newRunner.createNewAnts(antsQty);
+                    newRunner.setStepsToComplete(stepsQty);
+
+                    Thread runnerThread = new Thread(newRunner);
+
+                    runners.add(newRunner);
+                    runnerThreads.add(runnerThread);
+
+                    runnerThread.start();
+                }
+            } else {
+                for (runner runner : runners) {
+                    runner.resume();
+                }
+            }
+
             startRenderTimeline();
             startMetricsThread();
-
-            for (int i = 0; i < threadsQty; i++) {
-                runner newRunner = new runner(antsQty, grid);
-                Thread runnerThread = new Thread(newRunner);
-
-                runners.add(newRunner);
-                runnerThreads.add(runnerThread);
-
-                runnerThread.start();
-            }
         }
+    }
+
+    private void resetSimulationView() {
+        gridController.clearStore();
+        renderPipeline.clearChanges();
+        drawGrid();
     }
 
     @FXML
@@ -117,7 +149,18 @@ public class simulationPage {
         stopSimulation();
     }
 
-    private static void stopSimulation() {
+    @FXML
+    public void pauseSim() {
+        pauseSimulation();
+    }
+
+    @FXML
+    public void returnToSettings() throws IOException {
+        stopSimulation();
+        App.setRoot("primary");
+    }
+
+    private static void pauseSimulation() {
         if (running) {
             running = false;
 
@@ -132,16 +175,25 @@ public class simulationPage {
             }
 
             for (runner runner : runners) {
-                runner.stop();
+                runner.pause();
             }
-
-            for (Thread thread : runnerThreads) {
-                thread.interrupt();
-            }
-
-            runners.clear();
-            runnerThreads.clear();
         }
+    }
+
+    private static void stopSimulation() {
+        pauseSimulation();
+        System.out.println("Stopping, clearing runners out");
+
+        for (runner runner : runners) {
+            runner.stop();
+        }
+
+        for (Thread thread : runnerThreads) {
+            thread.interrupt();
+        }
+            
+        runners.clear();
+        runnerThreads.clear();
     }
 
     public static void shutdown() {
@@ -183,11 +235,26 @@ public class simulationPage {
         metricsThread = new Thread(() -> {
             while (running) {
                 Platform.runLater(() -> {
-                    renderQueueValue.setText("Current Render Queue: " + renderPipeline.changes.size());
+                    renderQueueValue.setText("Current Render Queue: " + renderPipeline.queuedChanges.get() + "/10,000,000 jobs");
                     renderTimeValue.setText(String.format("Current Render Time: %.3fms", renderPipeline.renderTime));
                     simSpeedValue.setText("Current Sim Speed: " + simSpeed + "ms");
                     renderSpeedValue.setText("Current Render Speed: " + renderSpeed + "ms");
-                    backPressureSleeps.setText("Render Backpressure Sleep Cycles: : " + Math.round((renderPipeline.renderBackpressureSleeps.get() * 10) / threadsQty) + " ms of sleeping");
+                    backPressureSleeps.setText("Render Backpressure Sleep Cycles: " + Math.round((renderPipeline.renderBackpressureSleeps.get() * 10) / threadsQty) + " ms of sleeping");
+                    lockWaitTimeValue.setText(String.format("Lock Wait Time: %.3fms", getAverageLockWaitTime()));
+                    currentTimerValue.setText(String.format("Current Time Elapsed: %.2fs", (System.nanoTime() - start) / 1_000_000_000.0));
+
+                    int totalStepsCompleted = 0;
+
+                    for (runner runner : runners) {
+                        totalStepsCompleted += runner.stepsCompleted();
+                    }
+
+                    stepsCompletedValue.setText("Steps Completed: " + Math.round(totalStepsCompleted / threadsQty));
+                    
+
+                    if (completedRunnerCount.get() == threadsQty) {
+                        stopSimulation();
+                    }
                 });
 
                 try {
@@ -202,8 +269,22 @@ public class simulationPage {
         metricsThread.start();
     }
 
-    public static void setAntsThreads(int ants, int threads) {
+    public static void setAntsThreadsSteps(int ants, int threads, int steps) {
         antsQty = ants;
         threadsQty = threads;
+        stepsQty = steps;
+    }
+
+    public static void setSimulationSpeeds(int simSpeedValue, int renderSpeedValue) {
+        simSpeed = simSpeedValue;
+        renderSpeed = renderSpeedValue;
+    }
+
+    public static void incrementCompletedRunnerCount() {
+        completedRunnerCount.incrementAndGet();
+    }
+
+    private double getAverageLockWaitTime() {
+        return (gridController.lockWaitTime.get() / 1_000_000.0) / threadsQty;
     }
 }

@@ -29,16 +29,21 @@
         <VBox alignment="TOP_CENTER" maxWidth="Infinity" spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="0" GridPane.vgrow="ALWAYS">
             <children>
                 <Button maxWidth="Infinity" onAction="#runSim" text="Start Simulation" />
+                <Button maxWidth="Infinity" onAction="#pauseSim" text="Pause" />
                 <Button maxWidth="Infinity" onAction="#stopSim" text="Stop Simulation" />
+                <Button maxWidth="Infinity" onAction="#returnToSettings" text="Return to Settings" />
                 <Label text="Sim Speed" />
-                <Slider fx:id="simSpeedInput" majorTickUnit="500.0" max="1000.0" maxWidth="Infinity" min="1.0" minorTickCount="100" showTickLabels="true" showTickMarks="true" value="200.0" />
+                <Slider fx:id="simSpeedInput" majorTickUnit="500.0" max="1000.0" maxWidth="Infinity" min="5.0" minorTickCount="100" showTickLabels="true" showTickMarks="true" value="400.0" />
                 <Label text="Render Speed" />
-                <Slider fx:id="renderSpeedInput" majorTickUnit="500.0" max="1000.0" maxWidth="Infinity" min="10.0" minorTickCount="100" showTickLabels="true" showTickMarks="true" value="100.0" />
+                <Slider fx:id="renderSpeedInput" majorTickUnit="500.0" max="1000.0" maxWidth="Infinity" min="5.0" minorTickCount="100" showTickLabels="true" showTickMarks="true" value="50.0" />
             <Label fx:id="renderQueueValue" text="Current Render Queue: " />
             <Label fx:id="simSpeedValue" text="Current Sim Speed: " />
             <Label fx:id="renderSpeedValue" text="Current Render Speed: " />
             <Label fx:id="renderTimeValue" text="Current Render Time: " />
             <Label fx:id="backPressureSleeps" text="Render Backpressure Sleep Cycles: " />
+            <Label fx:id="lockWaitTimeValue" text="Lock Wait Time: " />
+            <Label fx:id="stepsCompletedValue" text="Steps Completed: " />
+            <Label fx:id="currentTimerValue" text="Current Time Elapsed: " />
             </children>
             <padding>
                 <Insets bottom="8.0" left="4.0" right="4.0" top="8.0" />

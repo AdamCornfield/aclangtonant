@@ -6,9 +6,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class renderPipeline implements Runnable {
     public static ConcurrentLinkedQueue<cellValue> changes = new ConcurrentLinkedQueue<>();
+    
     public static double renderTime = 0; 
 
-    public static final int MAX_RENDER_QUEUE_SIZE = 1_000_000;
+    public static final int MAX_RENDER_QUEUE_SIZE = 10_000_000;
     public static final AtomicInteger queuedChanges = new AtomicInteger(0);
     public static final AtomicInteger renderBackpressureSleeps = new AtomicInteger(0);
 
@@ -22,6 +23,11 @@ public class renderPipeline implements Runnable {
     public static void addChange(int x, int y) {
         changes.add(new cellValue(x, y));
         queuedChanges.incrementAndGet();
+    }
+
+    public static void clearChanges() {
+        changes.clear();
+        queuedChanges.set(0);
     }
     
 

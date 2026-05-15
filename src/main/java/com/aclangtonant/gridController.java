@@ -1,5 +1,10 @@
 package com.aclangtonant;
 
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
+
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -7,10 +12,15 @@ public class gridController {
 
     public static int GRID_WIDTH = 32;
     public static int GRID_HEIGHT = 32;
-    public static boolean[][] gridStore = new boolean[GRID_WIDTH][GRID_HEIGHT];
-    
-    public static boolean lockingEnabled = false;
-public static int lockRegionSize = 1;
+    public static Set<Long> gridStore = ConcurrentHashMap.newKeySet();
+
+
+    private static boolean lockingEnabled = false;
+    private static int lockRegionSize = 1;
+    private static int lockColumns = 0;
+    private static ReentrantLock[] cellLocks;
+    public static final AtomicLong lockWaitCount = new AtomicLong(0);
+    public static final AtomicLong lockWaitTime = new AtomicLong(0);
 
     private static final double MIN_ZOOM = 0.25;
     private static final double MAX_ZOOM = 80.0;
@@ -39,12 +49,11 @@ public static int lockRegionSize = 1;
 
         grid.clearRect(0, 0, canvasWidth, canvasHeight);
 
-        for (int x = 0; x < GRID_WIDTH; x++) {
-            for (int y = 0; y < GRID_HEIGHT; y++) {
-                if (gridStore[x][y]) {
-                    setCellColour(x, y, Color.BLACK);
-                }
-            }
+        for (long key : gridStore) {
+            int xPos = (int) (key >> 32);
+            int yPos = (int) key;
+
+            setCellColour(xPos, yPos, Color.BLACK);
         }
 
         drawGridBorder();
@@ -72,14 +81,40 @@ public static int lockRegionSize = 1;
         drawGrid(canvasWidth, canvasHeight);
     }
 
-    public void toggleCell(int xPos, int yPos) {
-        gridStore[xPos][yPos] = !gridStore[xPos][yPos];
+    public boolean toggleCellAndGetPrevious(int xPos, int yPos) {
+        if (!lockingEnabled) {
+            return toggleCellWithoutLock(xPos, yPos);
+        }
+
+        ReentrantLock cellLock = getLockForCell(xPos, yPos);
+        long waitStart = System.nanoTime();
+        cellLock.lock();
+        lockWaitTime.addAndGet(System.nanoTime() - waitStart);
+        lockWaitCount.incrementAndGet();
+
+        try {
+            return toggleCellWithoutLock(xPos, yPos);
+        } finally {
+            cellLock.unlock();
+        }
+    }
+
+    private boolean toggleCellWithoutLock(int xPos, int yPos) {
+        long key = encodePos(xPos, yPos);
+        boolean previousValue = gridStore.contains(key);
+
+        if (previousValue) {
+            gridStore.remove(key);
+        } else {
+            gridStore.add(key);
+        }
 
         renderPipeline.addChange(xPos, yPos);
+        return previousValue; 
     }
 
     public void drawCellFromStore(int xPos, int yPos) {
-        if (gridStore[xPos][yPos]) {
+        if (getCellValue(xPos, yPos)) {
             setCellColour(xPos, yPos, Color.BLACK);
         } else {
             clearCell(xPos, yPos);
@@ -113,9 +148,55 @@ public static int lockRegionSize = 1;
         gridOffsetY = ((canvasHeight - (GRID_HEIGHT * cellSize)) / 2) + panY;
     }
 
+    private static ReentrantLock getLockForCell(int xPos, int yPos) {
+        int lockX = xPos / lockRegionSize;
+        int lockY = yPos / lockRegionSize;
+        int lockIndex = lockY * lockColumns + lockX;
+
+        return cellLocks[lockIndex];
+    }
+
+    public static void setLocking(boolean enabled, int regionSize) {
+        lockingEnabled = enabled;
+        lockRegionSize = Math.max(1, regionSize);
+
+        if (lockingEnabled) {
+            createLocks();
+        } else {
+            cellLocks = null;
+            lockColumns = 0;
+        }
+    }
+
+    private static void createLocks() {
+        lockColumns = (int) Math.ceil((double) GRID_WIDTH / lockRegionSize);
+        int lockRows = (int) Math.ceil((double) GRID_HEIGHT / lockRegionSize);
+        cellLocks = new ReentrantLock[lockColumns * lockRows];
+
+        for (int i = 0; i < cellLocks.length; i++) {
+            cellLocks[i] = new ReentrantLock();
+        }
+    }
+
     public static void setGridSize(int width, int height) {
         GRID_WIDTH = width;
         GRID_HEIGHT = height;
-        gridStore = new boolean[width][height];
+        gridStore.clear();
+
+        if (lockingEnabled) {
+            createLocks();
+        }
+    }
+
+    private static long encodePos(int xPos, int yPos) {
+        return (((long) xPos) << 32) | (yPos & 0xffffffffL);
+    }
+
+    private static boolean getCellValue(int xPos, int yPos) {
+        return gridStore.contains(encodePos(xPos, yPos));
+    } 
+
+    public static void clearStore() {
+        gridStore.clear();
     }
 }

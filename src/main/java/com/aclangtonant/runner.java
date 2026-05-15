@@ -5,15 +5,18 @@ import java.util.ArrayList;
 public class runner implements Runnable {
     private ArrayList<Ant> ants = new ArrayList<Ant>();
     private volatile boolean running = true;
+    private volatile boolean paused = false;
+    private boolean completed = false;
 
 
-    private final int antsQty;
+    private int antsQty = 0;
+    private int stepsToComplete = 0;
+    private int completedSteps = 0;
     private final String[] directions = {"UP", "RIGHT", "DOWN", "LEFT"};
 
     private final gridController grid;
 
-    public runner(int antsQty, gridController grid) {
-        this.antsQty = antsQty;
+    public runner(gridController grid) {
         this.grid = grid;
     }
 
@@ -21,10 +24,10 @@ public class runner implements Runnable {
         ants.add(newAnt);
     }
 
-    @Override
-    public void run() {
+    public void createNewAnts(int antsToMake) {
+        antsQty += antsToMake;
         // Create new ants
-        for (int i = 0; i < antsQty; i++)   {
+        for (int i = 0; i < antsToMake; i++)   {
             int randomX = (int)(Math.random() * gridController.GRID_WIDTH);
             int randomY = (int)(Math.random() * gridController.GRID_HEIGHT);
             String randomDirection = directions[(int)(Math.random() * 4)];
@@ -32,24 +35,45 @@ public class runner implements Runnable {
             Ant newAnt = new Ant(randomX, randomY, randomDirection);
             addAnt(newAnt);
         }
+    }
 
+    @Override
+    public void run() {
         while (running) { 
             try {
-                renderPipeline.waitIfRenderQueueIsFull();
+                if (paused) {
+                    Thread.sleep(10);
+                    continue;
+                }
+
+                int antCounter = 0;
 
                 for (Ant ant : ants) {
+                    if (antCounter % 1000 == 0) {
+                        renderPipeline.waitIfRenderQueueIsFull();
+                    }
+
+                    antCounter++;
+
                     int xPos = ant.getXPos();
                     int yPos = ant.getYPos();
+                    boolean previousCellValue = grid.toggleCellAndGetPrevious(xPos, yPos);
 
-                    if (gridController.gridStore[xPos][yPos]) {
-                        grid.toggleCell(xPos, yPos);
+                    if (previousCellValue) {
                         ant.rotateAnt("CCW");
                     } else {
-                        grid.toggleCell(xPos, yPos);
                         ant.rotateAnt("CW");
                     }
 
                     ant.moveAnt(1);
+                }
+
+                completedSteps++;
+
+                if (stepsToComplete > 0 && completedSteps >= stepsToComplete && !completed) {
+                    completed = true;
+                    paused = true;
+                    simulationPage.incrementCompletedRunnerCount();
                 }
 
                 try {
@@ -59,12 +83,29 @@ public class runner implements Runnable {
                     break;
                 }
             } catch (InterruptedException ex) {
-                System.getLogger(runner.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                Thread.currentThread().interrupt();
+                break;
             }
         }
     }
 
     public void stop() {
         running = false;
+    }
+
+    public void pause() {
+        paused = true;
+    }
+
+    public void resume() {
+        paused = false;
+    }
+
+    public void setStepsToComplete(int steps) {
+        stepsToComplete = steps;
+    }
+
+    public int stepsCompleted() {
+        return completedSteps;
     }
 }
